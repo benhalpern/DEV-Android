@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">DEV Community</string>
+    <string name="app_name">DEV.TO</string>
     <string name="splash_description">Splash</string>
     <string name="playback_channel_description">Podcast Player</string>
 </resources>
