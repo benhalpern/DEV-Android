@@ -1,0 +1,75 @@
+name: Release (Beta)
+
+on:
+  push:
+    tags:
+      - v*.*.*
+    branches:
+      - fdoxyz/beta-release-workflow
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-ruby@v1
+        with:
+          ruby-version: '2.7'
+
+      - name: Cache Ruby - Bundler
+        uses: actions/cache@v2
+        with:
+          path: vendor/bundle
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gems-
+
+      - name: Cache Gradle
+        uses: actions/cache@v1
+        with:
+          path: ~/.gradle/caches/
+          key: cache-clean-gradle-${{ matrix.os }}-${{ matrix.jdk }}
+
+      - name: Cache Gradle Wrapper
+        uses: actions/cache@v1
+        with:
+          path: ~/.gradle/wrapper/
+          key: cache-clean-wrapper-${{ matrix.os }}-${{ matrix.jdk }}
+
+      - name: Grant Permission to Execute
+        run: chmod +x gradlew
+
+      - name: Install bundle
+        run: |
+          bundle config path vendor/bundle
+          bundle install --jobs 4 --retry 3
+
+      - name: Configure Keystore
+        run: |
+          echo "This will fail because we don't have the secrets configured yet"
+          echo "$ANDROID_KEYSTORE_FILE" > keystore.jks.b64
+          base64 -d -i keystore.jks.b64 > app/keystore.jks
+          echo "storeFile=keystore.jks" >> keystore.properties
+          echo "keyAlias=$KEYSTORE_KEY_ALIAS" >> keystore.properties
+          echo "storePassword=$KEYSTORE_STORE_PASSWORD" >> keystore.properties
+          echo "keyPassword=$KEYSTORE_KEY_PASSWORD" >> keystore.properties
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ secrets.ANDROID_KEYSTORE_FILE }}
+          KEYSTORE_KEY_ALIAS: ${{ secrets.KEYSTORE_KEY_ALIAS }}
+          KEYSTORE_KEY_PASSWORD: ${{ secrets.KEYSTORE_KEY_PASSWORD }}
+          KEYSTORE_STORE_PASSWORD: ${{ secrets.KEYSTORE_STORE_PASSWORD }}
+
+      - name: Create Google Play Config file and google-services.json
+        run : |
+          echo "$SERVICE_ACCOUNT_JSON" > google-service-account-user.json.b64
+          base64 -d -i google-service-account-user.json.b64 > google-service-account-user.json
+          echo "$GOOGLE_SERVICES_JSON" > google-services.json.b64
+          base64 -d -i google-services.json.b64 > app/google-services.json
+        env:
+          SERVICE_ACCOUNT_JSON: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
+      - name: Distribute app to Beta track 🚀
+        run: bundle exec fastlane beta
